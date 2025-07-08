@@ -2,18 +2,15 @@
 # Datum: 29.11.2024
 
 from random import randint
-from pynput.keyboard import Key
-from pynput import keyboard
 from tkinter import *
 from tkinter import ttk
-import threading
+import copy
 
 # Variablen
 
 values = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
 value_vars = []
 labels = []
-direction = " "
 score = 0
 esc = False
 
@@ -111,11 +108,8 @@ def update_gui():
 
     text_label.config(textvariable=score_var)
 
-    i = 0
-    for y in range(4):
-        for x in range(4):
-            labels[i].config(textvariable=value_vars[i])
-            i += 1
+    for i in range(len(labels)):
+        labels[i].config(textvariable=value_vars[i])
 
 def converttoStringVar():
     global score
@@ -134,51 +128,6 @@ def converttoStringVar():
             else:
                 value_var.set(str(values[x][y]))
             value_vars.append(value_var)
-
- # Keyboard Funktionen
-
-def on_press(key):
-    global direction
-    global esc
-    try:
-        if key == Key.left:
-            direction = "left"
-        elif key == Key.right:
-            direction = "right"
-        elif key == Key.up:
-            direction = "up"
-        elif key == Key.down:
-            direction = "down"
-        elif key == keyboard.Key.esc:
-            esc = True
-        else:
-            direction = ""
-        # Stop listener
-        return False
-    except AttributeError:
-        pass
-
-def on_release(key):
-    global direction
-    
-    try:
-        if key == key.left:
-            direction == ""
-        if key == key.right:
-            direction == ""
-        if key == key.up:
-            direction = ""
-        if key == key.down:
-            direction = ""
-    except AttributeError:
-        pass
-
-def monitor_keyboard():
-    # Collect events until released
-    with keyboard.Listener(
-            on_press=on_press,
-            on_release=on_release) as listener:
-        listener.join()
 
  # Bewegungsfunktionen
 
@@ -247,23 +196,42 @@ def move_Right():
 
 def move_Left():
     global values
-    values_temp = []
      
     # left -> Reihe nach links
     for x in range(4):
-        values_temp = values[x]
-        values_temp = heinzmann_backhaus_algorithmus(values_temp)
-        values[x] = values_temp
+        values[x] = heinzmann_backhaus_algorithmus(values[x])
 
-def movement():
-    if direction == "down":
-        move_Down()
-    if direction == "up":
-        move_Up()
-    if direction == "right":
-        move_Right()
-    if direction == "left":
-        move_Left()
+ # Steuerfunktionen 
+
+def move_and_update(move_func):
+    global values
+
+    if check_movement(move_func):
+        move_func()
+        generate_numbers()
+        calculate_score()
+        converttoStringVar()
+        update_gui()
+
+def check_movement(move_func):
+    global values
+
+    values_save = copy.deepcopy(values)
+    move_func()
+    if values != values_save:
+        values = values_save
+        return True
+    else:
+        values = values_save
+        return False
+
+def monitor_keyboard_gui():
+    global mainWin
+    
+    mainWin.bind_all("<Left>", lambda e: move_and_update(move_Left))
+    mainWin.bind_all("<Right>", lambda e: move_and_update(move_Right))
+    mainWin.bind_all("<Up>", lambda e: move_and_update(move_Up))
+    mainWin.bind_all("<Down>", lambda e: move_and_update(move_Down))
 
  # Endfunktionen
  
@@ -279,37 +247,23 @@ def check_end():
 
     values_save = values.copy()
     if full() == True:
-        direction = "left"
         move_Left()
-        direction = "right"
         move_Right()
-        direction = "up"
         move_Up()
-        direction = "down"
         move_Down()
         if values == values_save:
-            return True        
+            return True
     values = values_save
     return False
 
 # Hauptprogramm
 
-def background():
-    while esc == False and check_end() == False:
-        converttoStringVar()
-        update_gui()
-        generate_numbers()
-        monitor_keyboard()
-        movement()
-        calculate_score()
-    converttoStringVar()
-    update_gui()
-
 def main():
     initiate_gui()    
-    t1 = threading.Thread(target=background)
-    t1.start()
     startnumbers()
+    converttoStringVar()
+    update_gui()
+    monitor_keyboard_gui()
     mainWin.mainloop()
 
 if __name__ == "__main__":
